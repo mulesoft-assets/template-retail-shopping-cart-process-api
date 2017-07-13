@@ -1,0 +1,298 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:objectstore="http://www.mulesoft.org/schema/mule/objectstore"
+	xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/objectstore http://www.mulesoft.org/schema/mule/objectstore/current/mule-objectstore.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd">
+   
+    <flow name="createShoppingCart">
+        <dw:transform-message doc:name="Transform input">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+using(shoppingCart = payload[0])
+{
+	customerId: shoppingCart.customerId,
+	items: shoppingCart.items
+}]]></dw:set-payload>
+        </dw:transform-message>
+        <set-variable variableName="shoppingCart" value="#[payload]" doc:name="Save input"/>
+        <set-variable variableName="shoppingCartID" value="#[function:uuid]" doc:name="Generate shoppingCartId"/>
+        <objectstore:contains config-ref="ObjectStore_Customer_Configuration" key="#[flowVars.shoppingCart.customerId]" doc:name="Contains customerId"/>
+        <choice doc:name="Does customer entry exist?">
+            <when expression="#[payload == false]">
+                <dw:transform-message doc:name="Add first cartId">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+[
+	flowVars.shoppingCartID
+]]]></dw:set-payload>
+                </dw:transform-message>
+            </when>
+            <otherwise>
+                <objectstore:retrieve config-ref="ObjectStore_Customer_Configuration" key="#[flowVars.shoppingCart.customerId]" targetProperty="customerShoppingCarts" doc:name="Retrieve customer's shopping carts"/>
+                <dw:transform-message doc:name="Add cartId to existing list">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+flowVars.customerShoppingCarts + flowVars.shoppingCartID]]></dw:set-payload>
+                </dw:transform-message>
+            </otherwise>
+        </choice>
+        <objectstore:store config-ref="ObjectStore_Customer_Configuration" key="#[flowVars.shoppingCart.customerId]" value-ref="#[payload]" overwrite="true" doc:name="Store customer"/>
+        <dw:transform-message doc:name="Mapping shopping cart">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+{
+	shoppingCartId: flowVars.shoppingCartID,
+	customerId: flowVars.shoppingCart.customerId,
+	items: flowVars.shoppingCart.items
+}]]></dw:set-payload>
+        </dw:transform-message>
+        <objectstore:store config-ref="ObjectStore_ShoppingCart_Configuration" key="#[flowVars.shoppingCartID]" value-ref="#[payload]" doc:name="Store shooping cart"/>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	message: "Shopping Cart was created"
+}]]></dw:set-payload>
+        </dw:transform-message>
+    </flow>
+
+
+    <flow name="updateShoppingCart">
+        <dw:transform-message doc:name="save input to updateShoppingCart">
+            <dw:set-variable variableName="updateShoppingCart"><![CDATA[%dw 1.0
+%output application/java
+---
+payload]]></dw:set-variable>
+        </dw:transform-message>
+        <objectstore:contains config-ref="ObjectStore_ShoppingCart_Configuration" key="#[flowVars.shoppingCartId]" doc:name="Contains shopping cart"/>
+        <choice doc:name="Does shopping cart exist?">
+            <when expression="#[payload == true]">
+                <objectstore:retrieve config-ref="ObjectStore_ShoppingCart_Configuration" key="#[flowVars.shoppingCartId]" doc:name="Retrieve shopping cart"/>
+                <dw:transform-message doc:name="Mapping shopping cart">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+{
+	shoppingCartId: flowVars.shoppingCartId, 
+	customerId: payload.customerId,
+	items: flowVars.updateShoppingCart.items
+}]]></dw:set-payload>
+                </dw:transform-message>
+                <objectstore:store config-ref="ObjectStore_ShoppingCart_Configuration" key="#[flowVars.shoppingCartId]" value-ref="#[payload]" overwrite="true" doc:name="Overwrite shopping cart"/>
+                <dw:transform-message doc:name="Response message">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	message: "Shopping cart was updated"
+}]]></dw:set-payload>
+                </dw:transform-message>
+            </when>
+            <otherwise>
+                <dw:transform-message doc:name="Status 404">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	error: "Shopping cart not found"
+}]]></dw:set-payload>
+                    <dw:set-property propertyName="http.status"><![CDATA[%dw 1.0
+%output application/java
+---
+404]]></dw:set-property>
+                </dw:transform-message>
+            </otherwise>
+        </choice>
+    	
+    </flow>
+    <flow name="deleteShoppingCart">
+        <objectstore:contains config-ref="ObjectStore_ShoppingCart_Configuration" key="#[flowVars.shoppingCartId]" doc:name="Contains shopping Card"/>
+        <choice doc:name="Does shoopingCart exist?">
+            <when expression="#[payload == true]">
+                <objectstore:retrieve config-ref="ObjectStore_ShoppingCart_Configuration" key="#[flowVars.shoppingCartId]" doc:name="Retrieve customerId from ShoppingCart"/>
+                <set-variable variableName="customerId" value="#[payload.customerId]" doc:name="Save customerId"/>
+                <objectstore:retrieve config-ref="ObjectStore_Customer_Configuration" key="#[flowVars.customerId]" doc:name=" Retrieve shoppingCards of customer"/>
+                <dw:transform-message doc:name="Filter shoppingCartsId">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload filter $ != flowVars.shoppingCartId]]></dw:set-payload>
+                </dw:transform-message>
+                <choice doc:name="Is list of shopping carts empty?">
+                    <when expression="#[payload != []]">
+                        <objectstore:store config-ref="ObjectStore_Customer_Configuration" key="#[flowVars.customerId]" value-ref="#[payload]" overwrite="true" doc:name="Overwrite customer object"/>
+                    </when>
+                    <otherwise>
+                        <objectstore:remove config-ref="ObjectStore_Customer_Configuration" key="#[flowVars.customerId]" doc:name="Remove customer object"/>
+                    </otherwise>
+                </choice>
+                <objectstore:remove config-ref="ObjectStore_ShoppingCart_Configuration" key="#[flowVars.shoppingCartId]" doc:name="Remove shopping cart object"/>
+                <dw:transform-message doc:name="Response message">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	message: "Shopping Cart was deleted"
+}]]></dw:set-payload>
+                </dw:transform-message>
+            </when>
+            <otherwise>
+                <dw:transform-message doc:name="Status 404">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	error: "Shopping cart not found"
+}]]></dw:set-payload>
+                    <dw:set-property propertyName="http.status"><![CDATA[%dw 1.0
+%output application/java
+---
+404]]></dw:set-property>
+                </dw:transform-message>
+            </otherwise>
+        </choice>
+    </flow>
+    <flow name="getShoppingCartsForCustomer">
+        <objectstore:contains config-ref="ObjectStore_Customer_Configuration" key="#[flowVars.customerId]" doc:name="Contains customer"/>
+        <choice doc:name="Does shopping cart exist?">
+            <when expression="#[payload == true]">
+                <objectstore:retrieve config-ref="ObjectStore_Customer_Configuration" key="#[flowVars.customerId]" doc:name="Retrieve customer"/>
+                <set-variable variableName="shoppingCarts" value="#[ [] ]" doc:name="shoppingCarts"/>
+                <foreach collection="#[payload]" doc:name="For Each">
+                    <objectstore:retrieve config-ref="ObjectStore_ShoppingCart_Configuration" key="#[payload]"  doc:name="Get shopping cart by ID"/>
+                    <set-variable variableName="shoppingCart" value="#[payload]" doc:name="shoppingCart"/>
+                    <dw:transform-message doc:name="Add current cart to array shoppingCarts">
+                        <dw:set-variable variableName="shoppingCarts"><![CDATA[%dw 1.0
+%output application/java
+---
+flowVars.shoppingCarts + flowVars.shoppingCart]]></dw:set-variable>
+                    </dw:transform-message>
+                </foreach>
+                <dw:transform-message doc:name="Mapping response">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{   
+	shoppingCarts: flowVars.shoppingCarts
+}]]></dw:set-payload>
+                </dw:transform-message>
+            </when>
+            <otherwise>
+                <dw:transform-message doc:name="Status 404">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	error: "Customer not found"
+}]]></dw:set-payload>
+                    <dw:set-property propertyName="http.status"><![CDATA[%dw 1.0
+%output application/java
+---
+404]]></dw:set-property>
+                </dw:transform-message>
+            </otherwise>
+        </choice>
+    </flow>
+    <flow name="getShoppingCart">
+        <objectstore:contains config-ref="ObjectStore_ShoppingCart_Configuration" key="#[flowVars.shoppingCartId]" doc:name="Contains shopping cart"/>
+        <choice doc:name="Does shopping cart exist?">
+            <when expression="#[payload == true]">
+                <objectstore:retrieve config-ref="ObjectStore_ShoppingCart_Configuration" key="#[flowVars.shoppingCartId]" doc:name="Retrieve shopping cart"/>
+                <dw:transform-message doc:name="Transform Message">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload.items
+]]></dw:set-payload>
+                    <dw:set-variable variableName="shoppingCart"><![CDATA[%dw 1.0
+%output application/java
+---
+payload]]></dw:set-variable>
+                    <dw:set-variable variableName="items"><![CDATA[%dw 1.0
+%output application/java
+---
+[]]]></dw:set-variable>
+                </dw:transform-message>
+
+                <foreach collection="#[payload]" doc:name="For Each">
+                    <set-variable variableName="itemDetails" value="#[payload]" doc:name="save item details"/>
+                    <http:request config-ref="HTTP_Product_Configuration" path="/products/{productId}/variants" method="GET" doc:name="GET/products/{productId}/variants">
+                        <http:request-builder>
+                            <http:uri-param paramName="productId" value="#[payload.productId]"/>
+                        </http:request-builder>
+                    </http:request>
+                    <dw:transform-message doc:name="filter variant from variants">
+                        <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+payload.variants filter $.identifier == flowVars.itemDetails.variantId ]]></dw:set-payload>
+                    </dw:transform-message>
+                    <dw:transform-message doc:name="Mappping item">
+                        <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+using (item = payload[0])
+{
+	item: {
+    	productId: item.productId,
+    	identifier: item.identifier, 
+   		identifiers: item.identifiers, 
+    	configuration: item.configuration,
+    	quantity: {
+    		amount: flowVars.itemDetails.quantity, 
+    		quantityType: "DISCRETE",
+        	unit: "EA"
+    	}
+    } 
+}    ]]></dw:set-payload>
+                    </dw:transform-message>
+                    <dw:transform-message doc:name="Add item to list">
+                        <dw:set-variable variableName="items"><![CDATA[%dw 1.0
+%output application/java
+---
+ flowVars.items + payload]]></dw:set-variable>
+                    </dw:transform-message>
+                </foreach>
+                <dw:transform-message doc:name="Mapping response">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	identifier: flowVars.shoppingCart.shoppingCartId, 
+	customerId: flowVars.shoppingCart.customerId,
+	items: flowVars.items
+}]]></dw:set-payload>
+                </dw:transform-message>
+            </when>
+            <otherwise>
+                <dw:transform-message doc:name="Status 404">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	error: "Shopping cart not found"
+}]]></dw:set-payload>
+                    <dw:set-property propertyName="http.status"><![CDATA[%dw 1.0
+%output application/java
+---
+404]]></dw:set-property>
+                </dw:transform-message>
+
+            </otherwise>
+        </choice>
+
+    </flow>
+	</mule>
