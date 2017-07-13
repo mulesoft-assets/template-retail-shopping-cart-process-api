@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:apikit="http://www.mulesoft.org/schema/mule/apikit"
+	xmlns:objectstore="http://www.mulesoft.org/schema/mule/objectstore"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-current.xsd
+http://www.mulesoft.org/schema/mule/apikit http://www.mulesoft.org/schema/mule/apikit/current/mule-apikit.xsd
+http://www.mulesoft.org/schema/mule/objectstore http://www.mulesoft.org/schema/mule/objectstore/current/mule-objectstore.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd">
+     <context:property-placeholder location="common.properties, mule.${mule.env}.properties" />
+    <http:listener-config name="process-api-httpListenerConfig" host="0.0.0.0" port="${http.port}" doc:name="HTTP Listener Configuration"/>
+    <apikit:config name="process-api-config" raml="process-api.raml" consoleEnabled="false" doc:name="Router"/>
+    <objectstore:config name="ObjectStore_ShoppingCart_Configuration" partition="shoppingCart" doc:name="ObjectStore: Configuration" persistent="true"/>
+	<objectstore:config name="ObjectStore_Customer_Configuration" partition="customer" doc:name="ObjectStore: Configuration" persistent="true"/> 
+	<http:request-config name="HTTP_Product_Configuration" host="${product-system-api.host}" port="${product-system-api.port}" basePath="${product-system-api.basePath}" doc:name="HTTP Request Configuration">
+        <http:raml-api-configuration location="retail-product-system-api/system-api.raml"/>
+    </http:request-config>  
+</mule>
