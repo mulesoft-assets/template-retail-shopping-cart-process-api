@@ -250,12 +250,12 @@ using (item = payload[0])
     	productId: item.productId,
     	identifier: item.identifier, 
    		identifiers: item.identifiers, 
-    	configuration: item.configuration,
-    	quantity: {
+    	configuration: item.configuration    	
+    },
+    quantity: {
     		amount: flowVars.itemDetails.quantity, 
     		quantityType: "DISCRETE",
         	unit: "EA"
-    	}
     } 
 }    ]]></dw:set-payload>
                     </dw:transform-message>
