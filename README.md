@@ -30,7 +30,7 @@ This endpoint will trigger flow getShoppingCart which obtains shopping cart from
 This endpoint will trigger flow getShoppingCart which updates shopping cart from Object Store based on shoppingCartId 
 
 ### GET/customers/{customerId}/shoppingCarts/
-This endpoint will trigger flow getShoppingCartsForCustomer which obtains shopping carts of customer based on customerId  
+This endpoint will trigger flow getShoppingCartsForCustomer which obtains shopping carts of customer based on customerId. If customer does not exist, response is empty field of shopping carts.   
 
 # Considerations <a name="considerations"/>
 
