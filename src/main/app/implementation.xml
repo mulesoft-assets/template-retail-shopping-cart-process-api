@@ -66,7 +66,8 @@ flowVars.customerShoppingCarts + flowVars.shoppingCartID]]></dw:set-payload>
 %output application/json
 ---
 {
-	message: "Shopping Cart was created"
+	message: "Shopping Cart was created", 
+	shoppingCartId: flowVars.shoppingCartID
 }]]></dw:set-payload>
         </dw:transform-message>
     </flow>
@@ -283,7 +284,7 @@ using (item = payload[0])
 %output application/json
 ---
 {
-	error: "Shopping cart not found"	
+	error: "Shopping Cart not found"	
 }]]></dw:set-payload>
                     <dw:set-property propertyName="http.status"><![CDATA[%dw 1.0
 %output application/java
