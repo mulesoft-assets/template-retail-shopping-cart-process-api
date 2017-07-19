@@ -21,6 +21,7 @@ using(shoppingCart = payload[0])
 {
 	customerId: shoppingCart.customerId,
 	items: shoppingCart.items
+	
 }]]></dw:set-payload>
         </dw:transform-message>
         <set-variable variableName="shoppingCart" value="#[payload]" doc:name="Save input"/>
@@ -55,7 +56,8 @@ flowVars.customerShoppingCarts + flowVars.shoppingCartID]]></dw:set-payload>
 {
 	shoppingCartId: flowVars.shoppingCartID,
 	customerId: flowVars.shoppingCart.customerId,
-	items: flowVars.shoppingCart.items
+	items: flowVars.shoppingCart.items, 
+	created: now as :datetime {format: "yyyy-MM-dd HH:mm:ss.SSS"}
 }]]></dw:set-payload>
         </dw:transform-message>
         <objectstore:store config-ref="ObjectStore_ShoppingCart_Configuration" key="#[flowVars.shoppingCartID]" value-ref="#[payload]" doc:name="Store shooping cart"/>
@@ -64,7 +66,8 @@ flowVars.customerShoppingCarts + flowVars.shoppingCartID]]></dw:set-payload>
 %output application/json
 ---
 {
-	message: "Shopping Cart was created"
+	message: "Shopping Cart was created", 
+	shoppingCartId: flowVars.shoppingCartID
 }]]></dw:set-payload>
         </dw:transform-message>
     </flow>
@@ -191,18 +194,16 @@ flowVars.shoppingCarts + flowVars.shoppingCart]]></dw:set-variable>
                 </dw:transform-message>
             </when>
             <otherwise>
-                <dw:transform-message doc:name="Status 404">
+                <logger message="Customer not found" level="INFO" doc:name="Logger"/>
+                <dw:transform-message doc:name="Customer not found">
                     <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
 ---
 {
-	error: "Customer not found"
+	shoppingCarts: []	
 }]]></dw:set-payload>
-                    <dw:set-property propertyName="http.status"><![CDATA[%dw 1.0
-%output application/java
----
-404]]></dw:set-property>
                 </dw:transform-message>
+
             </otherwise>
         </choice>
     </flow>
@@ -250,12 +251,12 @@ using (item = payload[0])
     	productId: item.productId,
     	identifier: item.identifier, 
    		identifiers: item.identifiers, 
-    	configuration: item.configuration,
-    	quantity: {
+    	configuration: item.configuration    	
+    },
+    quantity: {
     		amount: flowVars.itemDetails.quantity, 
     		quantityType: "DISCRETE",
         	unit: "EA"
-    	}
     } 
 }    ]]></dw:set-payload>
                     </dw:transform-message>
@@ -283,7 +284,7 @@ using (item = payload[0])
 %output application/json
 ---
 {
-	error: "Shopping cart not found"
+	error: "Shopping Cart not found"	
 }]]></dw:set-payload>
                     <dw:set-property propertyName="http.status"><![CDATA[%dw 1.0
 %output application/java
