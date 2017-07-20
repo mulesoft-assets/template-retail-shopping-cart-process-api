@@ -21,13 +21,16 @@ Please review the terms of the license before downloading and using this templat
 As a Customer I want a service shopping cart. This Api provides saving the shopping cart, updating the shopping cart, the deleting shopping cart, obtaining shopping cart with all information from Product System API and obtaining all shopping carts of customer. 
 
 ### POST/shoppingCarts/
-This endpoint will trigger flow createShoppingCart which creates shopping cart in Object Store for customer 
+This endpoint will trigger flow createShoppingCart which creates shopping cart to Object Store for customer 
 
 ### GET/shoppingCarts/{shoppingCartId}
 This endpoint will trigger flow getShoppingCart which obtains shopping cart from Object Store based on shoppingCartId 
 
 ### PUT/shoppingCarts/{shoppingCartId}
 This endpoint will trigger flow getShoppingCart which updates shopping cart from Object Store based on shoppingCartId 
+
+### DELETE/shoppingCarts/{shoppingCartId}
+This endpoint will trigger flow deleteShoppingCart which removes shopping cart based on shoppingCartId.
 
 ### GET/customers/{customerId}/shoppingCarts/
 This endpoint will trigger flow getShoppingCartsForCustomer which obtains shopping carts of customer based on customerId. If customer does not exist, response is empty field of shopping carts.   
