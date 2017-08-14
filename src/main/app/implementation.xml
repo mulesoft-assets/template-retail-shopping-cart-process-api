@@ -20,8 +20,7 @@ http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/htt
 using(shoppingCart = payload[0])
 {
 	customerId: shoppingCart.customerId,
-	items: shoppingCart.items
-	
+	items: shoppingCart.items	
 }]]></dw:set-payload>
         </dw:transform-message>
         <set-variable variableName="shoppingCart" value="#[payload]" doc:name="Save input"/>
@@ -188,9 +187,8 @@ flowVars.shoppingCarts + flowVars.shoppingCart]]></dw:set-variable>
                     <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
 ---
-{   
-	shoppingCarts: flowVars.shoppingCarts
-}]]></dw:set-payload>
+flowVars.shoppingCarts
+]]></dw:set-payload>
                 </dw:transform-message>
             </when>
             <otherwise>
@@ -199,9 +197,7 @@ flowVars.shoppingCarts + flowVars.shoppingCart]]></dw:set-variable>
                     <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
 ---
-{
-	shoppingCarts: []	
-}]]></dw:set-payload>
+[]]]></dw:set-payload>
                 </dw:transform-message>
 
             </otherwise>
@@ -257,7 +253,8 @@ using (item = payload[0])
     		amount: flowVars.itemDetails.quantity, 
     		quantityType: "DISCRETE",
         	unit: "EA"
-    } 
+    },
+    location: flowVars.itemDetails.location
 }    ]]></dw:set-payload>
                     </dw:transform-message>
                     <dw:transform-message doc:name="Add item to list">
