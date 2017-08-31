@@ -18,8 +18,8 @@ Please review the terms of the license before downloading and using this templat
 
 # Use Case <a name="usecase"/>
 
-As a Customer I want a Shopping Cart Service API. 
-The API provides endpoints for saving to the shopping cart, updating the shopping cart, deleting shopping cart, obtaining shopping cart. The content of shopping cart is fetch from Product System API. 
+As a Customer I want API to cover Shopping Cart functionality. 
+The API provides endpoints for saving to the shopping cart, updating, deleting and obtaining shopping cart. The details about content of shopping cart is fetch from Product System API. 
 
 ### POST/shoppingCarts/
 This endpoint will trigger flow createShoppingCart which creates shopping cart to Object Store for customer 
