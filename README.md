@@ -18,22 +18,23 @@ Please review the terms of the license before downloading and using this templat
 
 # Use Case <a name="usecase"/>
 
-As a Customer I want a service shopping cart. This Api provides saving the shopping cart, updating the shopping cart, the deleting shopping cart, obtaining shopping cart with all information from Product System API and obtaining all shopping carts of customer. 
+As a Customer I want a Shopping Cart Service API. 
+The API provides endpoints for saving to the shopping cart, updating the shopping cart, deleting shopping cart, obtaining shopping cart. The content of shopping cart is fetch from Product System API. 
 
 ### POST/shoppingCarts/
 This endpoint will trigger flow createShoppingCart which creates shopping cart to Object Store for customer 
 
 ### GET/shoppingCarts/{shoppingCartId}
-This endpoint will trigger flow getShoppingCart which obtains shopping cart from Object Store based on shoppingCartId 
+This endpoint will trigger flow getShoppingCart which obtains shopping cart from Object Store by shoppingCartId 
 
 ### PUT/shoppingCarts/{shoppingCartId}
-This endpoint will trigger flow getShoppingCart which updates shopping cart from Object Store based on shoppingCartId 
+This endpoint will trigger flow getShoppingCart which updates shopping cart from Object Store by shoppingCartId 
 
 ### DELETE/shoppingCarts/{shoppingCartId}
-This endpoint will trigger flow deleteShoppingCart which removes shopping cart based on shoppingCartId.
+This endpoint will trigger flow deleteShoppingCart which removes shopping cart by shoppingCartId.
 
 ### GET/customers/{customerId}/shoppingCarts/
-This endpoint will trigger flow getShoppingCartsForCustomer which obtains shopping carts of customer based on customerId. If customer does not exist, response is empty field of shopping carts.   
+This endpoint will trigger flow getShoppingCartsForCustomer which obtains shopping carts of customer by customerId. If customer does not exist, response is empty field of shopping carts.   
 
 # Considerations <a name="considerations"/>
 
@@ -70,7 +71,6 @@ You can find a detailed description on how to do so in this [Documentation Page]
 ### Running on Studio <a name="runonstudio"/>
 Once you have imported you Anypoint Template into Anypoint Studio you need to follow these steps to run it:
 
-+ Generate keystore and truststore (You can find a detailed description on how to do so in this [Documentation Page](https://docs.mulesoft.com/mule-user-guide/v/3.7/tls-configuration#generating-keystores-and-truststores))
 + Locate the properties file `mule-<env>.properties`, in src/main/app/resources
 + Complete all the properties required as per the examples in the section [Properties to be configured](#propertiestobeconfigured)
 + Once that is done, right click on you Anypoint Template project folder 
