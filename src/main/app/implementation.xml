@@ -14,16 +14,21 @@ http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/htt
    
     <flow name="createShoppingCart">
         <dw:transform-message doc:name="Transform input">
-            <dw:set-payload><![CDATA[%dw 1.0
+            <dw:set-variable variableName="shoppingCart"><![CDATA[%dw 1.0
 %output application/java
 ---
 using(shoppingCart = payload[0])
 {
 	customerId: shoppingCart.customerId,
 	items: shoppingCart.items	
-}]]></dw:set-payload>
+}]]></dw:set-variable>
+            <dw:set-variable variableName="items"><![CDATA[%dw 1.0
+%output application/java
+---
+[]]]></dw:set-variable>
+
         </dw:transform-message>
-        <set-variable variableName="shoppingCart" value="#[payload]" doc:name="Save input"/>
+
         <set-variable variableName="shoppingCartID" value="#[function:uuid]" doc:name="Generate shoppingCartId"/>
         <objectstore:contains config-ref="ObjectStore_Customer_Configuration" key="#[flowVars.shoppingCart.customerId]" doc:name="Contains customerId"/>
         <choice doc:name="Does customer entry exist?">
@@ -48,6 +53,85 @@ flowVars.customerShoppingCarts + flowVars.shoppingCartID]]></dw:set-payload>
             </otherwise>
         </choice>
         <objectstore:store config-ref="ObjectStore_Customer_Configuration" key="#[flowVars.shoppingCart.customerId]" value-ref="#[payload]" overwrite="true" doc:name="Store customer"/>
+        <foreach collection="#[flowVars.ShoppingCart.items]" doc:name="For Each">
+            <set-variable variableName="itemDetails" value="#[payload]" doc:name="Save item"/>
+            <choice doc:name="Is locationId correct?">
+                <when expression="#[flowVars.itemDetails.location.locationId != null]">
+                    <dw:transform-message doc:name="Check location">
+                        <dw:input-variable variableName="items"/>
+                        <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+flowVars.items filter ($.location.locationId == flowVars.itemDetails.location.locationId)]]></dw:set-payload>
+                    </dw:transform-message>
+                    <choice doc:name="Is location in items only one?">
+                        <when expression="#[payload == [] ]">
+                            <http:request config-ref="HTTP_Availability_Configuration" path="/locations/{locationId}/shipping" method="GET" doc:name="GET/shipping">
+                                <http:request-builder>
+                                    <http:query-param paramName="locationType" value="#[flowVars.itemDetails.location.locationType]"/>
+                                    <http:query-param paramName="productId" value="#[flowVars.itemDetails.productId]"/>
+                                    <http:query-param paramName="variantId" value="#[flowVars.itemDetails.variantId]"/>
+                                    <http:query-param paramName="quantity" value="#[flowVars.itemDetails.quantity]"/>
+                                    <http:uri-param paramName="locationId" value="#[flowVars.itemDetails.location.locationId]"/>
+                                </http:request-builder>
+                            </http:request>
+                            <dw:transform-message doc:name="set var shipping">
+                                <dw:input-payload mimeType="application/json"/>
+                                <dw:set-variable variableName="shipping"><![CDATA[%dw 1.0
+%output application/java
+---
+payload.totalShippingCost]]></dw:set-variable>
+                            </dw:transform-message>
+                        </when>
+                        <otherwise>
+                            <dw:transform-message doc:name="set var shipping">
+                                <dw:set-variable variableName="shipping"><![CDATA[%dw 1.0
+%output application/java
+---
+0]]></dw:set-variable>
+                            </dw:transform-message>
+                        </otherwise>
+                    </choice>
+                    <http:request config-ref="HTTP_Availability_Configuration" path="/locations/{locationId}/taxes" method="GET" doc:name="GET/taxes">
+                        <http:request-builder>
+                            <http:query-param paramName="locationType" value="#[flowVars.itemDetails.location.locationType]"/>
+                            <http:query-param paramName="productId" value="#[flowVars.itemDetails.productId]"/>
+                            <http:query-param paramName="variantId" value="#[flowVars.itemDetails.variantId]"/>
+                            <http:query-param paramName="quantity" value="#[flowVars.itemDetails.quantity]"/>
+                            <http:uri-param paramName="locationId" value="#[flowVars.itemDetails.location.locationId]"/>
+                        </http:request-builder>
+                    </http:request>
+                    <dw:transform-message doc:name="Add item to items">
+                        <dw:set-variable variableName="items"><![CDATA[%dw 1.0
+%output application/java
+---
+flowVars.items + {
+	productId: flowVars.itemDetails.productId,
+	variantId: flowVars.itemDetails.variantId,
+	location: flowVars.itemDetails.location,
+	quantity: flowVars.itemDetails.quantity,
+	tax: payload.totalTax,
+	shipping: flowVars.shipping
+}]]></dw:set-variable>
+                    </dw:transform-message>
+                </when>
+                <otherwise>
+                    <dw:transform-message doc:name="Add to items">
+                        <dw:set-variable variableName="items"><![CDATA[%dw 1.0
+%output application/java
+---
+flowVars.items + {
+	productId: flowVars.itemDetails.productId,
+	variantId: flowVars.itemDetails.variantId,
+	location: flowVars.itemDetails.location,
+	quantity: flowVars.itemDetails.quantity,
+	tax: null,
+	shipping: null
+}]]></dw:set-variable>
+                    </dw:transform-message>
+                </otherwise>
+            </choice>
+        </foreach>
         <dw:transform-message doc:name="Mapping shopping cart">
             <dw:set-payload><![CDATA[%dw 1.0
 %output application/java
@@ -55,12 +139,13 @@ flowVars.customerShoppingCarts + flowVars.shoppingCartID]]></dw:set-payload>
 {
 	shoppingCartId: flowVars.shoppingCartID,
 	customerId: flowVars.shoppingCart.customerId,
-	items: flowVars.shoppingCart.items, 
+	items: flowVars.items, 
 	created: now as :datetime {format: "yyyy-MM-dd HH:mm:ss.SSS"}
 }]]></dw:set-payload>
         </dw:transform-message>
+
         <objectstore:store config-ref="ObjectStore_ShoppingCart_Configuration" key="#[flowVars.shoppingCartID]" value-ref="#[payload]" doc:name="Store shooping cart"/>
-        <dw:transform-message doc:name="Transform Message">
+        <dw:transform-message doc:name="Response Message">
             <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
 ---
@@ -69,6 +154,7 @@ flowVars.customerShoppingCarts + flowVars.shoppingCartID]]></dw:set-payload>
 	shoppingCartId: flowVars.shoppingCartID
 }]]></dw:set-payload>
         </dw:transform-message>
+
     </flow>
 
 
@@ -78,10 +164,94 @@ flowVars.customerShoppingCarts + flowVars.shoppingCartID]]></dw:set-payload>
 %output application/java
 ---
 payload]]></dw:set-variable>
+            <dw:set-variable variableName="items"><![CDATA[%dw 1.0
+%output application/java
+---
+[]]]></dw:set-variable>
         </dw:transform-message>
         <objectstore:contains config-ref="ObjectStore_ShoppingCart_Configuration" key="#[flowVars.shoppingCartId]" doc:name="Contains shopping cart"/>
         <choice doc:name="Does shopping cart exist?">
             <when expression="#[payload == true]">
+                <foreach collection="#[flowVars.updateShoppingCart.items]" doc:name="For Each">
+            <set-variable variableName="itemDetails" value="#[payload]" doc:name="Save item"/>
+            <choice doc:name="Is locationId correct?">
+                <when expression="#[flowVars.itemDetails.location.locationId != null]">
+                    <dw:transform-message doc:name="Check location">
+                        <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+flowVars.items filter ($.location.locationId == flowVars.itemDetails.location.locationId)]]></dw:set-payload>
+                    </dw:transform-message>
+                    <choice doc:name="Is location in items only one?">
+                        <when expression="#[payload == [] ]">
+                            <http:request config-ref="HTTP_Availability_Configuration" path="/locations/{locationId}/shipping" method="GET" doc:name="GET/shipping">
+                                <http:request-builder>
+                                    <http:query-param paramName="locationType" value="#[flowVars.itemDetails.location.locationType]"/>
+                                    <http:query-param paramName="productId" value="#[flowVars.itemDetails.productId]"/>
+                                    <http:query-param paramName="variantId" value="#[flowVars.itemDetails.variantId]"/>
+                                    <http:query-param paramName="quantity" value="#[flowVars.itemDetails.quantity]"/>
+                                    <http:uri-param paramName="locationId" value="#[flowVars.itemDetails.location.locationId]"/>
+                                </http:request-builder>
+                            </http:request>
+                            <dw:transform-message doc:name="set var shipping">
+                                <dw:input-payload mimeType="application/json"/>
+                                <dw:set-variable variableName="shipping"><![CDATA[%dw 1.0
+%output application/java
+---
+payload.totalShippingCost]]></dw:set-variable>
+                            </dw:transform-message>
+                        </when>
+                        <otherwise>
+                            <dw:transform-message doc:name="set var shipping">
+                                <dw:set-variable variableName="shipping"><![CDATA[%dw 1.0
+%output application/java
+---
+0]]></dw:set-variable>
+                            </dw:transform-message>
+                        </otherwise>
+                    </choice>
+                    <http:request config-ref="HTTP_Availability_Configuration" path="/locations/{locationId}/taxes" method="GET" doc:name="GET/taxes">
+                        <http:request-builder>
+                                    <http:query-param paramName="locationType" value="#[flowVars.itemDetails.location.locationType]"/>
+                                    <http:query-param paramName="productId" value="#[flowVars.itemDetails.productId]"/>
+                                    <http:query-param paramName="quantity" value="#[flowVars.itemDetails.quantity]"/>
+                                    <http:query-param paramName="variantId" value="#[flowVars.itemDetails.variantId]"/>
+                                    <http:uri-param paramName="locationId" value="#[flowVars.itemDetails.location.locationId]"/>
+
+                        </http:request-builder>
+                    </http:request>
+                    <dw:transform-message doc:name="Add item to items">
+                        <dw:set-variable variableName="items"><![CDATA[%dw 1.0
+%output application/java
+---
+flowVars.items + {
+	productId: flowVars.itemDetails.productId,
+	variantId: flowVars.itemDetails.variantId,
+	location: flowVars.itemDetails.location,
+	quantity: flowVars.itemDetails.quantity,
+	tax: payload.totalTax,
+	shipping: flowVars.shipping
+}]]></dw:set-variable>
+                    </dw:transform-message>
+                </when>
+                <otherwise>
+                    <dw:transform-message doc:name="Transform Message">
+                                <dw:set-variable variableName="items"><![CDATA[%dw 1.0
+%output application/java
+---
+flowVars.items + {
+	productId: flowVars.itemDetails.productId,
+	variantId: flowVars.itemDetails.variantId,
+	location: flowVars.itemDetails.location,
+	quantity: flowVars.itemDetails.quantity,
+	tax: null,
+	shipping: null
+}]]></dw:set-variable>
+
+                    </dw:transform-message>
+                </otherwise>
+            </choice>
+        </foreach>
                 <objectstore:retrieve config-ref="ObjectStore_ShoppingCart_Configuration" key="#[flowVars.shoppingCartId]" doc:name="Retrieve shopping cart"/>
                 <dw:transform-message doc:name="Mapping shopping cart">
                     <dw:set-payload><![CDATA[%dw 1.0
@@ -90,9 +260,10 @@ payload]]></dw:set-variable>
 {
 	shoppingCartId: flowVars.shoppingCartId, 
 	customerId: payload.customerId,
-	items: flowVars.updateShoppingCart.items
+	items: flowVars.items
 }]]></dw:set-payload>
                 </dw:transform-message>
+
                 <objectstore:store config-ref="ObjectStore_ShoppingCart_Configuration" key="#[flowVars.shoppingCartId]" value-ref="#[payload]" overwrite="true" doc:name="Overwrite shopping cart"/>
                 <dw:transform-message doc:name="Response message">
                     <dw:set-payload><![CDATA[%dw 1.0
@@ -208,72 +379,14 @@ flowVars.shoppingCarts
         <choice doc:name="Does shopping cart exist?">
             <when expression="#[payload == true]">
                 <objectstore:retrieve config-ref="ObjectStore_ShoppingCart_Configuration" key="#[flowVars.shoppingCartId]" doc:name="Retrieve shopping cart"/>
-                <dw:transform-message doc:name="Transform Message">
+                <dw:transform-message doc:name="Response Message">
                     <dw:set-payload><![CDATA[%dw 1.0
-%output application/java
+%output application/json
 ---
-payload.items
-]]></dw:set-payload>
-                    <dw:set-variable variableName="shoppingCart"><![CDATA[%dw 1.0
-%output application/java
----
-payload]]></dw:set-variable>
-                    <dw:set-variable variableName="items"><![CDATA[%dw 1.0
-%output application/java
----
-[]]]></dw:set-variable>
+payload]]></dw:set-payload>
+
                 </dw:transform-message>
 
-                <foreach collection="#[payload]" doc:name="For Each">
-                    <set-variable variableName="itemDetails" value="#[payload]" doc:name="save item details"/>
-                    <http:request config-ref="HTTP_Product_Configuration" path="/products/{productId}/variants" method="GET" doc:name="GET/products/{productId}/variants">
-                        <http:request-builder>
-                            <http:uri-param paramName="productId" value="#[payload.productId]"/>
-                        </http:request-builder>
-                    </http:request>
-                    <dw:transform-message doc:name="filter variant from variants">
-                        <dw:set-payload><![CDATA[%dw 1.0
-%output application/json
----
-payload.variants filter $.identifier == flowVars.itemDetails.variantId ]]></dw:set-payload>
-                    </dw:transform-message>
-                    <dw:transform-message doc:name="Mappping item">
-                        <dw:set-payload><![CDATA[%dw 1.0
-%output application/java
----
-using (item = payload[0])
-{
-	item: {
-    	productId: item.productId,
-    	identifier: item.identifier, 
-   		identifiers: item.identifiers, 
-    	configuration: item.configuration    	
-    },
-    quantity: {
-    		amount: flowVars.itemDetails.quantity, 
-    		quantityType: "DISCRETE",
-        	unit: "EA"
-    },
-    location: flowVars.itemDetails.location
-}    ]]></dw:set-payload>
-                    </dw:transform-message>
-                    <dw:transform-message doc:name="Add item to list">
-                        <dw:set-variable variableName="items"><![CDATA[%dw 1.0
-%output application/java
----
- flowVars.items + payload]]></dw:set-variable>
-                    </dw:transform-message>
-                </foreach>
-                <dw:transform-message doc:name="Mapping response">
-                    <dw:set-payload><![CDATA[%dw 1.0
-%output application/json
----
-{
-	identifier: flowVars.shoppingCart.shoppingCartId, 
-	customerId: flowVars.shoppingCart.customerId,
-	items: flowVars.items
-}]]></dw:set-payload>
-                </dw:transform-message>
             </when>
             <otherwise>
                 <dw:transform-message doc:name="Status 404">
