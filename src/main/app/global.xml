@@ -17,8 +17,12 @@ http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/cor
     <http:listener-config name="process-api-httpListenerConfig" host="0.0.0.0" port="${http.port}" doc:name="HTTP Listener Configuration"/>
     <apikit:config name="process-api-config" raml="process-api.raml" consoleEnabled="false" doc:name="Router"/>
     <objectstore:config name="ObjectStore_ShoppingCart_Configuration" partition="shoppingCart" doc:name="ObjectStore: Configuration" persistent="true"/>
-	<objectstore:config name="ObjectStore_Customer_Configuration" partition="customer" doc:name="ObjectStore: Configuration" persistent="true"/> 
-	<http:request-config name="HTTP_Product_Configuration" host="${product-system-api.host}" port="${product-system-api.port}" basePath="${product-system-api.basePath}" doc:name="HTTP Request Configuration">
-        <http:raml-api-configuration location="retail-product-system-api/system-api.raml"/>
-    </http:request-config>  
+	<objectstore:config name="ObjectStore_Customer_Configuration" partition="customer" doc:name="ObjectStore: Configuration" persistent="true"/>
+	    
+    <http:request-config name="HTTP_Availability_Configuration" doc:name="HTTP Request Configuration" 
+    	host="${product-availability-process-api.host}" 
+    	port="${product-availability-process-api.port}" 
+    	basePath="${product-availability-process-api.basePath}">
+        <http:raml-api-configuration location="retail-product-availability-api/retail-product-availability-api.raml"/>
+    </http:request-config>
 </mule>
