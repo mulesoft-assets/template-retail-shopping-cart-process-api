@@ -1,0 +1,324 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:retail-product-availability-process-api="http://www.mulesoft.org/schema/mule/retail-product-availability-process-api"
+	xmlns:os="http://www.mulesoft.org/schema/mule/os"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd
+http://www.mulesoft.org/schema/mule/retail-product-availability-process-api http://www.mulesoft.org/schema/mule/retail-product-availability-process-api/current/mule-retail-product-availability-process-api.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	
+	<flow name="createShoppingCart" doc:id="6dc42961-be89-485a-a323-b3a7b92da4af" >
+		<ee:transform doc:name="Generate Identifier and transform input" doc:id="45f8ad64-0452-4ac9-86b4-5b4262a11635">
+			<ee:message>
+			</ee:message>
+			<ee:variables>
+				<ee:set-variable variableName="shoppingCart"><![CDATA[%dw 2.0
+output application/java
+---
+using(shoppingCart = payload[0])
+{
+	identifier: uuid(),
+	customerId: shoppingCart.customerId,
+	items: shoppingCart.items	
+}]]></ee:set-variable>
+				<ee:set-variable variableName="items"><![CDATA[%dw 2.0
+output application/java
+---
+[]]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<os:contains doc:name="Contains customerId" doc:id="e048b1ca-ef4a-4086-a6c7-504275729ca5" key="#[vars.shoppingCart.customerId]" objectStore="ObjectStore_Customer_Config"/>
+		<choice doc:name="Does customer entry exist?" doc:id="c9857bc6-6ff2-4ded-9138-bcad6626fca2" >
+			<when expression="#[payload == false]" >
+				<ee:transform doc:name="Add first cartId" doc:id="f2f034ba-ff8b-43b6-ae24-6e7ed05c34d5" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+[
+	vars.shoppingCart.identifier
+]]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</when>
+			<otherwise >
+				<os:retrieve doc:name="Retrieve customer's shopping carts" doc:id="4b4d899e-3b42-4503-92d8-5cfeb858555e" key="#[vars.shoppingCart.customerId]" objectStore="ObjectStore_Customer_Config"/>
+				<ee:transform doc:name="Add cartId to existing list" doc:id="72e05c0d-9b34-4efc-a435-d1523bb99bd9" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+payload + vars.shoppingCart.identifier]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</otherwise>
+		</choice>
+		<os:store doc:name="Store customer" doc:id="8f584cb2-e795-4665-af65-e8512b53bddf" objectStore="ObjectStore_Customer_Config" key="#[vars.shoppingCart.customerId]"/>
+		<foreach doc:name="For Each" doc:id="63f349cd-109f-46dc-8fab-0d6b95854b5d" collection="#[vars.shoppingCart.items]">
+			<set-variable value="#[payload]" doc:name="Save item" doc:id="cf6530f1-cffc-4ec6-bba0-0700d5ae64ad" variableName="itemDetails"/>
+			<retail-product-availability-process-api:get-shippings-by-location-id doc:name="Get shippings by location id" doc:id="8e9c6c16-780e-49ef-bb9b-8ab1f7a1d217" location-type="#[vars.itemDetails.location.locationType]" product-id="#[vars.itemDetails.productId]" variant-id="#[vars.itemDetails.variantId]" location-id="#[vars.itemDetails.location.locationId]" quantity="#[vars.itemDetails.quantity]" config-ref="Retail_Product_Availability_Process_API_Config" target="shipping"/>
+			<retail-product-availability-process-api:get-taxes-by-location-id doc:name="Get taxes by location id" doc:id="b1778993-e708-44ed-87e3-5cf4ca819bda" config-ref="Retail_Product_Availability_Process_API_Config" location-type="#[vars.itemDetails.location.locationType]" location-id="#[vars.itemDetails.location.locationId]" product-id="#[vars.itemDetails.productId]" variant-id="#[vars.itemDetails.variantId]" quantity="#[vars.itemDetails.quantity]"/>
+			<ee:transform doc:name="Add item to items" doc:id="0e4217d8-3c1a-445b-9f5d-6838d423ea79" >
+				<ee:message >
+				</ee:message>
+				<ee:variables >
+					<ee:set-variable variableName="items" ><![CDATA[%dw 2.0
+output application/java
+---
+vars.items + {
+	productId: vars.itemDetails.productId,
+	variantId: vars.itemDetails.variantId,
+	location: vars.itemDetails.location,
+	quantity: vars.itemDetails.quantity,
+	tax: payload.totalTax,
+	shipping: vars.shipping.totalShippingCost
+}]]></ee:set-variable>
+				</ee:variables>
+			</ee:transform>
+		</foreach>
+		<ee:transform doc:name="Mapping shopping cart" doc:id="e66b5f94-09a2-4813-8574-76ec3a46e5d0" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+	identifier: vars.shoppingCart.identifier,
+	customerId: vars.shoppingCart.customerId,
+	items: vars.items, 
+	created: now() as DateTime
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<os:store doc:name="Store shopping cart" doc:id="226bb4da-b500-407e-bfd8-98610b0d7fa9" key="#[vars.shoppingCart.identifier]" objectStore="ObjectStore_ShoppingCart_Config"/>
+		<ee:transform doc:name="Response Message" doc:id="cbf605c2-a453-4e50-9c89-08ec7c03e35a" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	message: "Shopping Cart was created", 
+	identifier: vars.shoppingCart.identifier
+}
+]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="getShoppingCartsForCustomer" doc:id="cf804869-0c5a-4405-8b76-9d13e0625852" >
+		<set-variable value="#[attributes.uriParams.customerId]" doc:name="Set Variable customerId" doc:id="5dd83c1f-57ac-421a-8c44-2c5ff0e1a1bd" variableName="customerId"/>
+		<os:contains doc:name="Contains customer" doc:id="b183e454-f8fc-4959-b8b3-fe588ea22b01" objectStore="ObjectStore_Customer_Config" key="#[vars.customerId]"/>
+		<choice doc:name="Does customer exist?" doc:id="cb485bfd-f453-4a81-bcde-08cc701686f8" >
+			<when expression="#[payload == true]" >
+				<os:retrieve doc:name="Retrieve customer" doc:id="dfc9860f-2246-4022-b15b-b4c9f31f4dfb" key="#[vars.customerId]" objectStore="ObjectStore_Customer_Config"/>
+				<set-variable value="#[ [] ]" doc:name="Set Variable shoppingCarts" doc:id="8b6faada-7fc9-447b-94b9-b297392a78c1" variableName="shoppingCarts"/>
+				<foreach doc:name="For Each" doc:id="2f4e0d95-b0b0-4eaf-b7e5-1d85d353fb9c" collection="#[payload]">
+					<os:retrieve doc:name="Get shopping cart by ID" doc:id="a92f515e-608a-473b-b48c-14cee133e85d" key="#[payload]" objectStore="ObjectStore_ShoppingCart_Config" target="shoppingCart"/>
+					<ee:transform doc:name="Add current cart to array shoppingCarts" doc:id="8bcdf082-3819-43f5-a74a-d40a68f018d1" >
+						<ee:message >
+						</ee:message>
+						<ee:variables >
+							<ee:set-variable variableName="shoppingCarts" ><![CDATA[%dw 2.0
+output application/java
+---
+vars.shoppingCarts + vars.shoppingCart]]></ee:set-variable>
+						</ee:variables>
+					</ee:transform>
+				</foreach>
+				<ee:transform doc:name="Mapping response" doc:id="9439e718-70e9-49bd-bbc6-ad6316e96581" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+vars.shoppingCarts]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</when>
+			<otherwise >
+				<ee:transform doc:name="Customer not found" doc:id="39ff566f-5b99-4a07-8edc-c280b9436fa8" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+[]]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</otherwise>
+		</choice>
+	</flow>
+	<flow name="deleteShoppingCart" doc:id="9668f155-2ce9-42c7-bf95-14d8a73cf17d" >
+		<set-variable value="#[attributes.uriParams.shoppingCartId]" doc:name="Set Variable shoppingCartId" doc:id="9ce91b72-439a-4365-9c3e-11b33e0d6d4d" variableName="shoppingCartId"/>
+		<os:contains doc:name="Contains shopping Card" doc:id="134bf8e3-755a-46fe-8978-161de71f5b8a" key="#[vars.shoppingCartId]" objectStore="ObjectStore_ShoppingCart_Config"/>
+		<choice doc:name="Does shoopingCart exist?" doc:id="b65f66b9-8dc3-4c12-8e50-01db9b07147c" >
+			<when expression="#[payload == true]" >
+				<os:retrieve doc:name="Retrieve customerId from ShoppingCart" doc:id="5ba6215a-e893-4767-99f8-c615e876de22" key="#[vars.shoppingCartId]" objectStore="ObjectStore_ShoppingCart_Config" target="shoppingCart"/>
+				<os:retrieve doc:name="Retrieve shoppingCards of customer" doc:id="44e772fa-94e7-4a4e-8e78-87049807506a" key="#[vars.shoppingCart.customerId]" objectStore="ObjectStore_Customer_Config"/>
+				<ee:transform doc:name="Filter shoppingCart Ids" doc:id="34b04a2e-8e1e-4d43-a975-e5c9da1e1e60" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+payload filter $ != vars.shoppingCartId]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<choice doc:name="Is list of shopping carts empty?" doc:id="ee7d497b-1b0a-418f-813b-354fc6945d3c" >
+					<when expression="#[payload != []]" >
+						<os:store doc:name="Overwrite customer object" doc:id="0919c60e-adf5-49ba-83a7-1d2a77b4be91" key="#[vars.shoppingCart.customerId]" objectStore="ObjectStore_Customer_Config"/>
+					</when>
+					<otherwise >
+						<os:remove doc:name="Remove customer object" doc:id="ef559d47-20ff-40b9-b74a-eade8051013d" key="#[vars.shoppingCart.customerId]" objectStore="ObjectStore_Customer_Config"/>
+					</otherwise>
+				</choice>
+				<os:remove doc:name="Remove shopping cart object" doc:id="230432f8-daa8-45df-b0db-f280cc89eaf7" key="#[vars.shoppingCartId]" objectStore="ObjectStore_ShoppingCart_Config"/>
+				<ee:transform doc:name="Response message" doc:id="3908fde1-1170-461a-b2e5-c6ec4fca17e7" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	message: "Shopping Cart was deleted"
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</when>
+			<otherwise >
+				<ee:transform doc:name="Error Message 404" doc:id="d888f9aa-da23-4ec4-8e4b-e99e8ba74dff">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	message: "Shopping cart not found"
+}]]></ee:set-payload>
+			</ee:message>
+					<ee:variables >
+						<ee:set-variable variableName="httpStatus" ><![CDATA[%dw 2.0
+output application/java
+---
+404]]></ee:set-variable>
+					</ee:variables>
+		</ee:transform>
+			</otherwise>
+		</choice>
+	</flow>
+	<flow name="updateShoppingCart" doc:id="6d5454f5-e026-4818-983c-683eb3c61b5b" >
+		<ee:transform doc:name="save input to updateShoppingCart and shoppingCartId" doc:id="b4815407-4f20-43e7-aa0d-08ce0eed7ae1" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="items" ><![CDATA[%dw 2.0
+output application/java
+---
+[]]]></ee:set-variable>
+				<ee:set-variable variableName="shoppingCart" ><![CDATA[%dw 2.0
+output application/java
+---
+payload ++ {
+	identifier: attributes.uriParams.shoppingCartId}
+]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<os:contains doc:name="Contains shopping cart" doc:id="67a8e538-5548-4335-98aa-c51d718f792c" objectStore="ObjectStore_ShoppingCart_Config" key="#[vars.shoppingCart.identifier]"/>
+		<choice doc:name="Does shopping cart exist?" doc:id="4f32e548-1d69-484f-8345-7ee3e10ee5af" >
+			<when expression="#[payload == true]" >
+				<foreach doc:name="For Each" doc:id="134c2f4f-c81f-40f7-9c7e-3cc179d4cc63" collection="#[vars.shoppingCart.items]">
+					<set-variable value="#[payload]" doc:name="Set Variable itemDetails" doc:id="324c1e64-527f-4d12-b43a-df09d7e0cd52" variableName="itemDetails"/>
+					<retail-product-availability-process-api:get-shippings-by-location-id doc:name="Get shippings by location id" doc:id="18fec0b9-88a7-4eff-8875-a733673e270a" config-ref="Retail_Product_Availability_Process_API_Config" location-type="#[vars.itemDetails.location.locationType]" product-id="#[vars.itemDetails.productId]" variant-id="#[vars.itemDetails.variantId]" location-id="#[vars.itemDetails.location.locationId]" quantity="#[vars.itemDetails.quantity]" target="shipping"/>
+					<retail-product-availability-process-api:get-taxes-by-location-id doc:name="Get taxes by location id" doc:id="61ca1dc5-c6aa-4823-8c86-23c9c61930fb" config-ref="Retail_Product_Availability_Process_API_Config" location-type="#[vars.itemDetails.location.locationType]" product-id="#[vars.itemDetails.productId]" variant-id="#[vars.itemDetails.variantId]" location-id="#[vars.itemDetails.location.locationId]" quantity="#[vars.itemDetails.quantity]"/>
+					<ee:transform doc:name="Add item to items" doc:id="d6ff7385-b50d-4c7b-92db-388541d2e205">
+					<ee:message>
+					</ee:message>
+						<ee:variables >
+							<ee:set-variable variableName="items" ><![CDATA[%dw 2.0
+output application/java
+---
+vars.items + {
+	productId: vars.itemDetails.productId,
+	variantId: vars.itemDetails.variantId,
+	location: vars.itemDetails.location,
+	quantity: vars.itemDetails.quantity,
+	tax: payload.totalTax,
+	shipping: vars.shipping.totalShippingCost
+}]]></ee:set-variable>
+						</ee:variables>
+				</ee:transform>
+				</foreach>
+				<os:retrieve doc:name="Retrieve shopping cart" doc:id="142e7323-96fa-47bc-952f-4124f1d1afb8" key="#[vars.shoppingCart.identifier]" objectStore="ObjectStore_ShoppingCart_Config"/>
+				<ee:transform doc:name="Mapping shopping cart" doc:id="c8d586f9-646f-4b93-af2e-801155f55467" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+	identifier: vars.shoppingCart.identifier, 
+	customerId: payload.customerId,
+	items: vars.items
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<os:store doc:name="Overwrite shopping cart" doc:id="83180db2-c886-455b-bb88-6eced0667eef" objectStore="ObjectStore_ShoppingCart_Config" key="#[vars.shoppingCart.identifier]"/>
+				<ee:transform doc:name="Response message" doc:id="65195211-fe4b-4de4-87fa-ea982906a463" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	message: "Shopping cart was updated"
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</when>
+			<otherwise >
+				<ee:transform doc:name="Error Message 404" doc:id="8a97d7a7-cdea-4b81-9e0b-f3d5b33cc086" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	message: "Shopping cart not found"
+}]]></ee:set-payload>
+					</ee:message>
+					<ee:variables >
+						<ee:set-variable variableName="httpStatus" ><![CDATA[%dw 2.0
+output application/java
+---
+404]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</otherwise>
+		</choice>
+	</flow>
+	<flow name="getShoppingCart" doc:id="872c9715-2456-40aa-a2b1-776528099fda" >
+		<set-variable value="#[attributes.uriParams.shoppingCartId]" doc:name="Set Variable shoppingCartId" doc:id="6deb3d0f-3e99-4bd6-9a65-91ec5eb2842b" variableName="shoppingCartId" />
+		<os:contains doc:name="Contains shopping cart" doc:id="ed99c911-1608-4183-9ffa-801fb3627e8b" key="#[vars.shoppingCartId]" objectStore="ObjectStore_ShoppingCart_Config" />
+		<choice doc:name="Does shopping cart exist?" doc:id="88b88d0c-a12d-4ecb-98b8-1613ff97af3a" >
+			<when expression="#[payload == true]" >
+				<os:retrieve doc:name="Retrieve shopping cart" doc:id="9dbbdcff-1588-44f9-98cc-1ba9e84f3cb4" objectStore="ObjectStore_ShoppingCart_Config" key="#[vars.shoppingCartId]"/>
+				<ee:transform doc:name="Successful response" doc:id="2dc0b10e-fa52-4dd9-8310-978ac57c6ce6" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</when>
+			<otherwise >
+				<ee:transform doc:name="Error Message 404" doc:id="4a0532c0-ce68-4c16-8bcf-e0131649684f" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+  "message": "Shopping cart not found"
+}]]></ee:set-payload>
+					</ee:message>
+					<ee:variables >
+						<ee:set-variable variableName="httpStatus" ><![CDATA[%dw 2.0
+output application/java
+---
+404]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</otherwise>
+		</choice>
+	</flow>
+</mule>

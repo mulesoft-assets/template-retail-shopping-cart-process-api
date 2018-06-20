@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:retail-product-availability-process-api="http://www.mulesoft.org/schema/mule/retail-product-availability-process-api"
+	xmlns:os="http://www.mulesoft.org/schema/mule/os"
+	xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" 
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd 
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd
+http://www.mulesoft.org/schema/mule/retail-product-availability-process-api http://www.mulesoft.org/schema/mule/retail-product-availability-process-api/current/mule-retail-product-availability-process-api.xsd">
+	
+	
+	<os:object-store name="ObjectStore_Customer_Config" doc:name="ObjectStore Config" doc:id="5620527f-6d35-449e-80e2-68fbf702a8fc"/>
+	<os:object-store name="ObjectStore_ShoppingCart_Config" doc:name="ObjectStore Config" doc:id="aebea76c-0036-4abe-ac11-4a3d1f42da76"/>
+	<http:listener-config name="retail_shopping_cart_process_api-httpListenerConfig">
+        <http:listener-connection host="0.0.0.0" port="${http.port}"/>
+    </http:listener-config>
+    <apikit:config name="retail_shopping_cart_process_api-config" raml="retail_shopping_cart_process_api.raml" outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" />
+	<configuration-properties doc:name="Configuration properties" doc:id="496cf84b-9f9d-4b41-968c-c628913f5d69" file="common.properties" />
+	<configuration-properties doc:name="Configuration properties" doc:id="fb4a069f-8dd0-440c-9f3b-9e5fd207b192" file="mule.${mule.env}.properties" />
+	<configuration-properties doc:name="Configuration properties" doc:id="1e2d415f-bb38-44ec-a68d-cb7c1e01383e" file="mule-artifact.properties" />
+	<retail-product-availability-process-api:config name="Retail_Product_Availability_Process_API_Config" doc:name="Retail_Product_Availability_Process_API Config" doc:id="2d03dc85-6286-474c-8f7a-92bbe56eaf3e" property_host="${product-availability-process-api.host}" property_port="${product-availability-process-api.port}" property_basePath="${product-availability-process-api.basePath}" property_protocol="${product-availability-process-api.protocol}" />
+</mule>
