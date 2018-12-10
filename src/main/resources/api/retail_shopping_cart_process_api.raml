@@ -3,7 +3,7 @@ title: Retail_Shopping_Cart_Process_API
 version: v2.0
   
 uses: 
-  shoppingCart:  /exchange_modules/47f07e0a-f578-47d4-9591-d9e7afffb0fc.retail/retail_shopping_cart_types/1.0.1/retail_shopping_cart_types.raml  
+  shoppingCart:  /exchange_modules/org.mule.templates/retail-shopping-cart-types/1.0.0/retail_shopping_cart_types.raml  
 
 types:
   ShoppingCartCollectionResponse:
@@ -20,6 +20,7 @@ types:
 
 /shoppingCarts:
   post:
+    displayName: Create shopping cart
     description: Create shopping Cart
     body:
       application/json:
@@ -39,6 +40,7 @@ types:
               
   /{shoppingCartId}:          
     get:
+      displayName: Retrieve shopping cart
       description: Return shopping cart 
       responses:
         200:
@@ -55,6 +57,7 @@ types:
                   "message": "Shopping cart not found"
                 }
     put:
+      displayName: Update shopping cart
       description: Update shopping cart  
       body:
         application/json:
@@ -80,6 +83,7 @@ types:
                 }
             
     delete:
+      displayName: Remove shopping cart
       description: Remove shopping cart
       responses:
         200:
@@ -101,11 +105,13 @@ types:
   /{customerId}: 
     /shoppingCarts: 
       get: 
-        description: Return Shopping Cards of customer
+        displayName: Retrieve shopping carts of customer
+        description: Return Shopping Carts of customer
         responses:
             200:
               body:
                 application/json:
                   type: ShoppingCartCollectionResponse
                   example: !include examples/shopping-cart_customer_get_response.raml
+ 
  
