@@ -1,9 +1,10 @@
 #%RAML 1.0
-title: Retail_Shopping_Cart_Process_API
+title: Retail Shopping Cart Process API
 version: v2.0
+baseUri: http://localhost:8081/api
   
 uses: 
-  shoppingCart: exchange_modules/47f07e0a-f578-47d4-9591-d9e7afffb0fc.retail/retail_shopping_cart_types/1.0.4/retail_shopping_cart_types.raml  
+  shoppingCart: /exchange_modules/org.mule.templates/retail-shopping-cart-types/1.0.2/retail_shopping_cart_types.raml  
 
 types:
   ShoppingCartCollectionResponse:
@@ -25,7 +26,7 @@ types:
     body:
       application/json:
           type: ShoppingCartCollectionResponse
-          example: !include examples/shopping-carts_post_request.json              
+          example: !include examples/shopping-carts_post_request.yaml              
     responses:
       201:
         body: 
@@ -39,14 +40,14 @@ types:
               
   /{shoppingCartId}:          
     get:
-      displayName: Retrieve shopping cart
+      displayName: Get shopping cart
       description: Return shopping cart 
       responses:
         200:
           body: 
             application/json: 
               type: ShoppingCartResponse
-              example: !include examples/shopping-cart_get_response.json         
+              example: !include examples/shopping-cart_get_response.yaml         
         404:
           body: 
             application/json:
@@ -61,7 +62,7 @@ types:
       body:
         application/json:
           type: ShoppingCartResponse
-          example:  !include examples/shopping-cart_put_request.json  
+          example:  !include examples/shopping-cart_put_request.yaml  
         
       responses:
         200:
@@ -82,8 +83,8 @@ types:
                 }
             
     delete:
-      displayName: Remove shopping cart
-      description: Remove shopping cart
+      displayName: Delete shopping cart
+      description: Delete shopping cart
       responses:
         200:
           body:
@@ -104,12 +105,12 @@ types:
   /{customerId}: 
     /shoppingCarts: 
       get: 
-        displayName: Retrieve shopping carts of customer
+        displayName: Get shopping carts for customer
         description: Return Shopping Carts of customer
         responses:
             200:
               body:
                 application/json:
                   type: ShoppingCartCollectionResponse
-                  example: !include examples/shopping-cart_customer_get_response.json
+                  example: !include examples/shopping-cart_customer_get_response.yaml
  
